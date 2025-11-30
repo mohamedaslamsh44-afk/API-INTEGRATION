@@ -46,4 +46,4 @@ Deploying the application and ensuring everything works in production
 
 Overall, this project strengthened my skills in building end-to-end applications, improved my understanding of client-server architecture, and helped me gain confidence in developing real-world full stack solutions.
 
-*OUTPUT* : 
+*OUTPUT* : <img width="1892" height="910" alt="Image" src="https://github.com/user-attachments/assets/7001162c-6426-42b9-9355-856c40cdc068" />
