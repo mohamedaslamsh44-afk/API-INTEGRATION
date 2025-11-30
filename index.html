@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Internship Task - Weather API Demo</title>
+  <style>
+    :root{
+      --bg:#fbf4ea; --card:#fff; --accent:#e2552b; --muted:#666;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    body{margin:0;background:var(--bg);color:#111;padding:28px;box-sizing:border-box;}
+    .container{max-width:980px;margin:0 auto;}
+    header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    h1{margin:0;font-size:28px;letter-spacing:-1px}
+    .search {
+      margin-left:auto; display:flex; gap:8px; align-items:center;
+      background:var(--card); padding:8px; border-radius:10px; box-shadow: var(--shadow);
+    }
+    input[type="text"]{border:0; outline:none; padding:8px 10px; min-width:220px; font-size:14px; background:transparent}
+    button{background:var(--accent); color:white; border:0; padding:8px 12px; border-radius:8px; cursor:pointer}
+    main{margin-top:20px; display:grid; grid-template-columns: 1fr 320px; gap:20px;}
+    @media (max-width:880px){ main{grid-template-columns: 1fr;}}
+    .card{background:var(--card); padding:18px; border-radius:14px; box-shadow:var(--shadow);}
+    .current{display:flex; gap:18px; align-items:center;}
+    .temp{font-size:48px; font-weight:700;}
+    .meta{color:var(--muted);}
+    .forecast{display:flex; gap:12px; margin-top:12px; flex-wrap:wrap;}
+    .day{background:#f7f7fb; padding:10px; border-radius:10px; min-width:90px; text-align:center;}
+    .loader{display:inline-block;padding:6px 10px;border-radius:8px;background:#fff8f5;border:1px solid #ffe8df;color:var(--muted)}
+    .error{color:#b00020;background:#ffefef;padding:10px;border-radius:8px}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Internship Task — API Integration</h1>
+      <div class="search card" role="search" aria-label="Search city">
+        <input id="cityInput" type="text" placeholder="Enter city (e.g., New Delhi)" />
+        <button id="searchBtn">Search</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="results" aria-live="polite">
+        <div class="card" id="intro">
+          <p><strong>Instructions:</strong> Type a city and press Search. This page uses Open-Meteo (no API key) to fetch coordinates and weather.</p>
+          <p class="meta">Example cities: London, New York, Tokyo, Mumbai.</p>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card">
+          <h3>Task Checklist</h3>
+          <ul>
+            <li>Fetch public API data</li>
+            <li>Show loading & error states</li>
+            <li>Responsive layout</li>
+            <li>Deliverable: single-page demo</li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4>Uploaded Task Image</h4>
+          <img src="/mnt/data/Screenshot 2025-11-25 201344.png" alt="Task instructions image" style="width:100%;border-radius:8px;margin-top:8px" />
+        </div>
+      </aside>
+    </main>
+
+    <footer>Mohamed Aslam.k</footer>
+  </div>
+
+  <script>
+    const searchBtn = document.getElementById('searchBtn');
+    const cityInput = document.getElementById('cityInput');
+    const results = document.getElementById('results');
+
+    // Helper - render HTML safely (small template helper)
+    function setHTML(html){
+      results.innerHTML = html;
+    }
+
+    // Convert city name -> lat/lon using open-meteo geocoding (no key)
+    async function geocodeCity(city){
+      const q = encodeURIComponent(city);
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${q}&count=1&language=en&format=json`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Geocoding failed');
+      const data = await res.json();
+      if(!data.results || data.results.length === 0) throw new Error('City not found');
+      return data.results[0]; // {latitude, longitude, name, country}
+    }
+
+    // Get weather from open-meteo (current + daily)
+    async function fetchWeather(lat, lon){
+      // request current weather and daily forecast (max/min temps & weathercode)
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=4`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Weather fetch failed');
+      return res.json();
+    }
+
+    function weatherCodeToText(code){
+      // minimal mapping for demo (Open-Meteo codes)
+      const map = {
+        0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+        45:'Fog',48:'Depositing rime fog',
+        51:'Light drizzle',53:'Moderate drizzle',55:'Dense drizzle',
+        61:'Light rain',63:'Moderate rain',65:'Heavy rain',
+        80:'Rain showers',95:'Thunderstorm'
+      };
+      return map[code] || 'Unknown';
+    }
+
+    function renderWeather(place, weatherData){
+      const cw = weatherData.current_weather;
+      const daily = weatherData.daily;
+      const locationName = `${place.name}${place.country ? ', ' + place.country : ''}`;
+
+      const intro = `
+        <div class="card current">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="temp">${Math.round(cw.temperature)}°C</div>
+              <div>
+                <div style="font-weight:600">${locationName}</div>
+                <div class="meta">${weatherCodeToText(cw.weathercode)} • Wind ${Math.round(cw.windspeed)} km/h</div>
+              </div>
+            </div>
+
+            <div class="forecast" aria-label="3-day forecast">
+              ${daily.time.slice(1,4).map((date, idx) => {
+                const max = Math.round(daily.temperature_2m_max[idx+1]);
+                const min = Math.round(daily.temperature_2m_min[idx+1]);
+                const code = daily.weathercode[idx+1];
+                return `<div class="day">
+                          <div style="font-size:13px;font-weight:600">${new Date(date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>
+                          <div class="meta" style="margin-top:6px">${weatherCodeToText(code)}</div>
+                          <div style="margin-top:8px;font-weight:700">${max}° / ${min}°</div>
+                        </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+      setHTML(intro);
+    }
+
+    function showLoading(msg='Loading...'){
+      setHTML(`<div class="card"><div class="loader">${msg}</div></div>`);
+    }
+    function showError(msg){
+      setHTML(`<div class="card error">${msg}</div>`);
+    }
+
+    async function onSearch(){
+      const city = cityInput.value.trim();
+      if(!city){ showError('Please enter a city name.'); return; }
+      try{
+        showLoading('Looking up city...');
+        const place = await geocodeCity(city);
+
+        showLoading('Fetching weather for ' + place.name + '...');
+        const data = await fetchWeather(place.latitude, place.longitude);
+
+        renderWeather(place, data);
+      }catch(err){
+        showError('Error: ' + (err.message || err));
+        console.error(err);
+      }
+    }
+
+    searchBtn.addEventListener('click', onSearch);
+    cityInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') onSearch(); });
+
+    // optional: show a starter city
+    cityInput.value = 'New Delhi';
+    // auto fetch example on load:
+    window.addEventListener('load', ()=>setTimeout(()=>searchBtn.click(), 400));
+  </script>
+</body>
+</html>
